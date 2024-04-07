@@ -1,4 +1,11 @@
 <resources>
     <string name="app_name">My Application</string>
     <string name="google_map_api_key">AIzaSyAuYe1fBFd1qjDrHNwm9RwKhuUXSSmxbm4</string>
+    <string name="camera_button_description">Take a photo</string>
+    <string name="enter_description">Enter description</string>
+    <string name="save">Save</string>
+    <string name="hint">Location Detail</string>
+    <string name="lat">Lat:</string>
+    <string name="lng">Lng:</string>
+    <string name="location_details">Location Details</string>
 </resources>

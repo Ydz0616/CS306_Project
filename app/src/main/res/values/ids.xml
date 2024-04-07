@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="txtLat" type="id" />
+    <item name="txtLng" type="id" />
+    <item name="editDescription" type="id" />
+    <item name="btnSave" type="id" />
+    <item name="txtTitle" type="id" />
+</resources>
