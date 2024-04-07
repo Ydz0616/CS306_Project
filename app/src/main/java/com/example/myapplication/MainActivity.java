@@ -106,8 +106,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapReady(@NonNull GoogleMap googleMap) {
     mMap = googleMap;
     mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(this));
-    LatLng kunshanLatLng = new LatLng(31.3731, 120.9605);
+
+    LatLng kunshanLatLng = new LatLng(31.416, 120.9014);
     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(kunshanLatLng, 10));
+
+
     mMap.getUiSettings().setZoomControlsEnabled(true); // Enable zoom controls
     // Retrieve data from Firebase Realtime Database
     DatabaseReference databaseReference = firebaseDatabase.getReference("images");
@@ -266,25 +269,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
                                     return;
                                 }
-//                                fusedLocationClient.getLastLocation().addOnSuccessListener(MainActivity.this,location -> {
-//                                    if(location!=null){
-//                                        try {
-//                                            uploadDataToFirebase(location);
-//                                        } catch (IOException e) {
-//                                            throw new RuntimeException(e);
-//                                        }
-//                                    }
-//                                    else{
-//                                        Location lastKnowlocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-//                                        if(lastKnowlocation!=null){
-//                                            try {
-//                                                uploadDataToFirebase(lastKnowlocation);
-//                                            } catch (IOException e) {
-//                                                throw new RuntimeException(e);
-//                                            }
-//                                        }
-//                                    }
-//                                });
                                 Location location  =locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                                 if (location!=null){
                                     try{uploadDataToFirebase(location);}catch (IOException e){throw new RuntimeException(e);};
