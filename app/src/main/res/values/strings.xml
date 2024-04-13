@@ -6,6 +6,7 @@
     <string name="save">Save</string>
     <string name="hint">Location Detail</string>
     <string name="lat">Lat:</string>
+    <string name="map_id">d2247126215386fe</string>
     <string name="lng">Lng:</string>
     <string name="location_details">Location Details</string>
 </resources>

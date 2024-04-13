@@ -34,6 +34,7 @@ android {
 
 dependencies {
     implementation(libs.play.services.location)
+    implementation(libs.google.services.v300)
     implementation( libs.camera.core )
     implementation( libs.camera.camera2)
     implementation( libs.camera.lifecycle)
@@ -49,4 +50,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
 }
