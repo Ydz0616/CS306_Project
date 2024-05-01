@@ -46,6 +46,10 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Base64;
@@ -54,7 +58,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 import com.google.firebase.database.annotations.Nullable;
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback{
-    private GoogleMap mMap;
+    GoogleMap mMap;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 1;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
@@ -69,10 +73,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     DatabaseReference databaseReference;
     FirebaseDatabase firebaseDatabase;
+    MapSetUpHandler mapSetUpHandler;
+    MapHandler mapHandler;
+
+    FirebaseHandler firebaseHandler;
 
 //   on create function
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+
+
         super.onCreate(savedInstanceState);
 
         MapsInitializer.initialize(this, MapsInitializer.Renderer.LATEST, new OnMapsSdkInitializedCallback() {
@@ -91,9 +102,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             return insets;
 
         });
-
-
-
 //        setContentView(mainBinding.getRoot());
         imageUri = createUri();
         registerPictureLauncher();
@@ -101,12 +109,26 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             checkCameraPermissionAndOpenCamera();
         });
 
+//        looper and handler
+        HandlerThread handerThread = new HandlerThread("MapSetUpHandlerThread");
+        handerThread.start();
+        Looper looper = handerThread.getLooper();
+        mapSetUpHandler = new MapSetUpHandler(looper,getSupportFragmentManager(),this);
+        mapSetUpHandler.sendEmptyMessage(1);
 
-//        setting up map fragment
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.mapFragment);
+//        initialize the map handler
+        handerThread = new HandlerThread("MapHandlerThread");
+        handerThread.start();
+        looper = handerThread.getLooper();
+        mapHandler = new MapHandler(looper,mMap,this);
 
-        mapFragment.getMapAsync(this);
+//        initialize the fierbase handler
+        handerThread = new HandlerThread("FirebaseHandlerthread");
+        handerThread.start();
+        looper = handerThread.getLooper();
+        DatabaseReference databaseReference = firebaseDatabase.getReference("images");
+        firebaseHandler = new FirebaseHandler(looper, databaseReference, this);
+
 
 
     }
@@ -121,95 +143,52 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     LatLng kunshanLatLng = new LatLng(31.416, 120.9014);
     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(kunshanLatLng, 10));
     mMap.getUiSettings().setZoomControlsEnabled(true); // Enable zoom control
-
-
     // Retrieve data from Firebase Realtime Database
-    DatabaseReference databaseReference = firebaseDatabase.getReference("images");
-    databaseReference.addValueEventListener(new ValueEventListener() {
-        @Override
-        public void onDataChange(@NonNull DataSnapshot snapshot) {
-            // Clear existing markers
-            for (Marker marker : markerList) {
-                marker.remove();
-            }
-            markerList.clear();
 
-            for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
-                String markerID = dataSnapshot.getKey();
-                Log.d("markerID",markerID);
-                // Get latitude, longitude, and Base64 image data from the snapshot
-                String latitudeStr = dataSnapshot.child("latitude").getValue(String.class);
-                String longitudeStr = dataSnapshot.child("longitude").getValue(String.class);
-                String base64ImageData = dataSnapshot.child("imageData").getValue(String.class);
-
-                // Check if latitude and longitude strings are retrieved successfully
-                if (latitudeStr != null && longitudeStr != null) {
-                    try {
-                        // Parse latitude and longitude strings to doubles
-                        double latitude = Double.parseDouble(latitudeStr);
-                        double longitude = Double.parseDouble(longitudeStr);
-                        LatLng position = new LatLng(latitude,longitude);
-                        // Print retrieved latitude and longitude
-                        Log.d("Map", "Retrieved Latitude: " + latitude + ", Longitude: " + longitude);
-
-                        // Decode base64 string to bitmap
-                        Bitmap oribitmap = decodeBase64ToBitmap(base64ImageData);
-                        Bitmap bitmap = cropToSquare(oribitmap);
-
-                        int targetWidth = 200; // Set your desired width
-                        int targetHeight = 200; // Set your desired height
-                        Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, false);
-                        // Create MarkerOptions for the image
-                        MarkerOptions markerOptions = new MarkerOptions()
-                                .position(position).icon(BitmapDescriptorFactory.fromBitmap(resizedBitmap)).draggable(true);
-
-
-                        // Add marker to the map
-                        Marker marker = mMap.addMarker(markerOptions);
-                        assert marker != null;
-                        marker.setTag(markerID);
-                        markerList.add(marker);
-
-                    } catch (NumberFormatException e) {
-                        // Handle if latitude or longitude cannot be parsed as doubles
-                        e.printStackTrace();
-                    }
-                } else {
-                    // Data not retrieved successfully, prompt a message
-                    Log.e("Map", "Error: Latitude or Longitude data not retrieved successfully");
-                    Toast.makeText(MainActivity.this, "Error: Latitude or Longitude data not retrieved successfully", Toast.LENGTH_SHORT).show();
-                }
-            }
-            mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
-                @Override
-                public void onInfoWindowClick(@NonNull Marker marker) {
-                    showEditTitleDialog(marker);
-                }
-            });
-            mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
-                @Override
-                public void onMarkerDragStart(@NonNull Marker marker) {
-                    // Do nothing
-                }
-
-                @Override
-                public void onMarkerDrag(@NonNull Marker marker) {
-                    // Do nothing
-                }
-
-                @Override
-                public void onMarkerDragEnd(@NonNull Marker marker) {
-                    updateMarkerPosition(marker);
-
-                }
-            });
-        }
-
-        @Override
-        public void onCancelled(@NonNull DatabaseError error) {
-            // Handle onCancelled event
-        }
-    });
+    Message message = Message.obtain();
+    message.what  = 1 ;
+    firebaseHandler.sendMessage(message);
+//    DatabaseReference databaseReference = firebaseDatabase.getReference("images");
+//    databaseReference.addValueEventListener(new ValueEventListener() {
+//        @Override
+//        public void onDataChange(@NonNull DataSnapshot snapshot) {
+//            // Clear existing markers
+//            for (Marker marker : markerList) {
+//                marker.remove();
+//            }
+//            markerList.clear();
+//
+//
+//            mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
+//                @Override
+//                public void onInfoWindowClick(@NonNull Marker marker) {
+//                    showEditTitleDialog(marker);
+//                }
+//            });
+//            mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+//                @Override
+//                public void onMarkerDragStart(@NonNull Marker marker) {
+//                    // Do nothing
+//                }
+//
+//                @Override
+//                public void onMarkerDrag(@NonNull Marker marker) {
+//                    // Do nothing
+//                }
+//
+//                @Override
+//                public void onMarkerDragEnd(@NonNull Marker marker) {
+//                    updateMarkerPosition(marker);
+//
+//                }
+//            });
+//        }
+//
+//        @Override
+//        public void onCancelled(@NonNull DatabaseError error) {
+//            // Handle onCancelled event
+//        }
+//    });
 }
     private Marker findMarkerByPosition(LatLng position) {
         for (Marker marker : markerList) {
@@ -391,7 +370,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 //    handle write and read data access
 
-    private void uploadDataToFirebase(@Nullable Location location)  throws IOException {
+      private void uploadDataToFirebase(@Nullable Location location)  throws IOException {
         try {
 
             double latitude = location != null ? location.getLatitude() : 0.0;
