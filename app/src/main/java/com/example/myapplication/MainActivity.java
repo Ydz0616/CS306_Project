@@ -148,55 +148,37 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     Message message = Message.obtain();
     message.what  = 1 ;
     firebaseHandler.sendMessage(message);
-//    DatabaseReference databaseReference = firebaseDatabase.getReference("images");
-//    databaseReference.addValueEventListener(new ValueEventListener() {
+
+    mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
+        @Override
+        public void onInfoWindowClick(@NonNull Marker marker) {
+            showEditTitleDialog(marker);
+        }
+    });
+//    mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
 //        @Override
-//        public void onDataChange(@NonNull DataSnapshot snapshot) {
-//            // Clear existing markers
-//            for (Marker marker : markerList) {
-//                marker.remove();
-//            }
-//            markerList.clear();
+//        public void onMarkerDrag(@NonNull Marker marker) {
 //
-//
-//            mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
-//                @Override
-//                public void onInfoWindowClick(@NonNull Marker marker) {
-//                    showEditTitleDialog(marker);
-//                }
-//            });
-//            mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
-//                @Override
-//                public void onMarkerDragStart(@NonNull Marker marker) {
-//                    // Do nothing
-//                }
-//
-//                @Override
-//                public void onMarkerDrag(@NonNull Marker marker) {
-//                    // Do nothing
-//                }
-//
-//                @Override
-//                public void onMarkerDragEnd(@NonNull Marker marker) {
-//                    updateMarkerPosition(marker);
-//
-//                }
-//            });
 //        }
 //
 //        @Override
-//        public void onCancelled(@NonNull DatabaseError error) {
-//            // Handle onCancelled event
+//        public void onMarkerDragEnd(@NonNull Marker marker) {
+//            updateMarkerPosition(marker);
+//        }
+//
+//        @Override
+//        public void onMarkerDragStart(@NonNull Marker marker) {
+//
 //        }
 //    });
-}
-    private Marker findMarkerByPosition(LatLng position) {
-        for (Marker marker : markerList) {
-            if (marker.getPosition().equals(position)) {
-                return marker;
-            }
-        }
-        return null;
+//}
+//    private Marker findMarkerByPosition(LatLng position) {
+//        for (Marker marker : markerList) {
+//            if (marker.getPosition().equals(position)) {
+//                return marker;
+//            }
+//        }
+//        return null;
     }
 
 
@@ -242,24 +224,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         builder.show();
     }
 
-    // Method to crop a bitmap to a square
-    private Bitmap cropToSquare(Bitmap bitmap) {
-    int width = bitmap.getWidth();
-    int height = bitmap.getHeight();
-    int size = Math.min(width, height);
-
-    // Calculate the coordinates for cropping
-    int x = (width - size) / 2;
-    int y = (height - size) / 2;
-
-    // Crop the bitmap to a square
-    return Bitmap.createBitmap(bitmap, x, y, size, size);
-}
-//Method to decode base64 to image that can be displayed
-    public Bitmap decodeBase64ToBitmap(String base64ImageData) {
-        byte[] decodedBytes = Base64.decode(base64ImageData, Base64.DEFAULT);
-        return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
-    }
 
 //    method to create image uri
     private Uri createUri(){
