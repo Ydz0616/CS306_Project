@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     FirebaseHandler firebaseHandler;
 
+    private boolean mapReady = false;
 //   on create function
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -141,13 +142,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 //    System.out.println("is advanced marker enabled?" + capabilities.isAdvancedMarkersAvailable());
     mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(this));
     LatLng kunshanLatLng = new LatLng(31.416, 120.9014);
-    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(kunshanLatLng, 10));
+    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(kunshanLatLng, 5));
     mMap.getUiSettings().setZoomControlsEnabled(true); // Enable zoom control
     // Retrieve data from Firebase Realtime Database
-
-    Message message = Message.obtain();
-    message.what  = 1 ;
-    firebaseHandler.sendMessage(message);
 
     mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
         @Override
@@ -179,8 +176,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 //            }
 //        }
 //        return null;
-    }
+        mapReady = true;
+        firebaseHandler.sendEmptyMessage(1);
 
+    }
+    public boolean isMapReady() {
+        return mapReady;
+    }
 
 //showing edit title dialog once the opponent is dragged
     private void showEditTitleDialog(final Marker marker) {
@@ -256,7 +258,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 }
                                 Location location  =locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                                 if (location!=null){
-                                    try{uploadDataToFirebase(location);}catch (IOException e){throw new RuntimeException(e);};
+                                    try{
+//                                        uploadDataToFirebase(location);}catch (IOException e){throw new RuntimeException(e);
+                                        Message msg = Message.obtain();
+                                        msg.what = 2;
+                                        msg.obj = location;
+                                        firebaseHandler.sendMessage(msg);
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
                                 }
 
 
