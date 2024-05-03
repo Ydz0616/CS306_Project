@@ -72,6 +72,10 @@ public class MapHandler extends Handler {
             }
         });
     }
+//    TODO: render route
+    private void renderRoute(){
+
+    }
 
     private Bitmap decodeBase64ToBitmap(String base64ImageData) {
         byte[] decodedBytes = Base64.decode(base64ImageData, Base64.DEFAULT);

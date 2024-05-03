@@ -1,9 +1,14 @@
 package com.example.myapplication;
+import static android.content.ContentValues.TAG;
+
+import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import com.example.myapplication.databinding.ActivityMainBinding;
 import java.io.ByteArrayOutputStream;
@@ -16,12 +21,14 @@ import java.util.Map;
 import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -47,10 +54,12 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import android.os.Environment;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.text.InputType;
 import android.util.Base64;
 import android.util.Log;
@@ -58,9 +67,12 @@ import android.widget.EditText;
 import android.widget.Toast;
 import com.google.firebase.database.annotations.Nullable;
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback{
+    private static final int STORAGE_PERMISSION_CODE = 23;
     GoogleMap mMap;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 1;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+
+    private static final int STORAGE_PERMISSION_REQUEST_CODE = 1;
 
     private static final int EDIT_REQUEST = 1;
 
@@ -76,9 +88,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     MapSetUpHandler mapSetUpHandler;
     MapHandler mapHandler;
 
+    musicHandler musicHandler;
+
     FirebaseHandler firebaseHandler;
 
     private boolean mapReady = false;
+    private boolean isRecording = false;
 //   on create function
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,30 +125,128 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             checkCameraPermissionAndOpenCamera();
         });
 
+        mainBinding.playButton.setOnClickListener(view->{
+            changeRecordButton();
+        });
 //        looper and handler
-        HandlerThread handerThread = new HandlerThread("MapSetUpHandlerThread");
-        handerThread.start();
-        Looper looper = handerThread.getLooper();
-        mapSetUpHandler = new MapSetUpHandler(looper,getSupportFragmentManager(),this);
+        HandlerThread mapSetupThread = new HandlerThread("MapSetupThread");
+        mapSetupThread.start();
+        Looper looper = mapSetupThread.getLooper();
+        mapSetUpHandler = new MapSetUpHandler(looper, getSupportFragmentManager(), this);
         mapSetUpHandler.sendEmptyMessage(1);
 
-//        initialize the map handler
-        handerThread = new HandlerThread("MapHandlerThread");
-        handerThread.start();
-        looper = handerThread.getLooper();
-        mapHandler = new MapHandler(looper,mMap,this);
+        HandlerThread mapUpdateThread = new HandlerThread("MapUpdateThread");
+        mapUpdateThread.start();
+        looper = mapUpdateThread.getLooper();
+        mapHandler = new MapHandler(looper, mMap, this);
 
-//        initialize the fierbase handler
-        handerThread = new HandlerThread("FirebaseHandlerthread");
-        handerThread.start();
-        looper = handerThread.getLooper();
+        HandlerThread firebaseThread = new HandlerThread("FirebaseThread");
+        firebaseThread.start();
+        looper = firebaseThread.getLooper();
         DatabaseReference databaseReference = firebaseDatabase.getReference("images");
         firebaseHandler = new FirebaseHandler(looper, databaseReference, this);
 
+        HandlerThread musicThread = new HandlerThread("MusicThread");
+        musicThread.start();
+        looper = musicThread.getLooper();
+        musicHandler = new musicHandler(looper, this);
+
+        if(!checkStoragePermissions()){
+            requestForStoragePermissions();
+
+        }
+
+//        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+//            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},STORAGE_PERMISSION_REQUEST_CODE);
+//        }
 
 
     }
+    public boolean checkStoragePermissions(){
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            //Android is 11 (R) or above
+            return Environment.isExternalStorageManager();
+        }else {
+            //Below android 11
+            int write = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            int read = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
 
+            return read == PackageManager.PERMISSION_GRANTED && write == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    private ActivityResultLauncher<Intent> storageActivityResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    new ActivityResultCallback<ActivityResult>(){
+
+                        @Override
+                        public void onActivityResult(ActivityResult o) {
+                            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+                                //Android is 11 (R) or above
+                                if(Environment.isExternalStorageManager()){
+                                    //Manage External Storage Permissions Granted
+                                    Log.d(TAG, "onActivityResult: Manage External Storage Permissions Granted");
+                                }else{
+                                    Toast.makeText(MainActivity.this, "Storage Permissions Denied", Toast.LENGTH_SHORT).show();
+                                }
+                            }else{
+                                //Below android 11
+
+                            }
+                        }
+                    });
+    private void requestForStoragePermissions() {
+        //Android is 11 (R) or above
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            try {
+                Intent intent = new Intent();
+                intent.setAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                Uri uri = Uri.fromParts("package", this.getPackageName(), null);
+                intent.setData(uri);
+                storageActivityResultLauncher.launch(intent);
+            }catch (Exception e){
+                Intent intent = new Intent();
+                intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                storageActivityResultLauncher.launch(intent);
+            }
+        }else{
+            //Below android 11
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                    },
+                    STORAGE_PERMISSION_CODE
+            );
+        }
+
+    }
+    private void changeRecordButton(){
+        if(!isRecording){
+            recordStart();
+            mainBinding.playButton.setImageResource(R.drawable.ic_stop);
+        }else {
+            recordEnd();
+            mainBinding.playButton.setImageResource(R.drawable.ic_start);
+        }
+        isRecording = !isRecording;
+    }
+
+    private void recordStart(){
+        Message msg = Message.obtain();
+        msg.what = 1;
+        musicHandler.sendMessage(msg);
+
+    }
+
+
+    private void recordEnd(){
+        Message msg = Message.obtain();
+        msg.what = 2;
+        musicHandler.sendMessage(msg);
+
+    }
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
@@ -152,34 +265,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             showEditTitleDialog(marker);
         }
     });
-//    mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
-//        @Override
-//        public void onMarkerDrag(@NonNull Marker marker) {
-//
-//        }
-//
-//        @Override
-//        public void onMarkerDragEnd(@NonNull Marker marker) {
-//            updateMarkerPosition(marker);
-//        }
-//
-//        @Override
-//        public void onMarkerDragStart(@NonNull Marker marker) {
-//
-//        }
-//    });
-//}
-//    private Marker findMarkerByPosition(LatLng position) {
-//        for (Marker marker : markerList) {
-//            if (marker.getPosition().equals(position)) {
-//                return marker;
-//            }
-//        }
-//        return null;
+//   TODO: I don't think the ondrag is a good idea, so the ondrag listener code is delelted, might consider to redo it in future
         mapReady = true;
         firebaseHandler.sendEmptyMessage(1);
 
     }
+
+
     public boolean isMapReady() {
         return mapReady;
     }
@@ -225,7 +317,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         builder.show();
     }
-
 
 //    method to create image uri
     private Uri createUri(){
@@ -281,6 +372,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         );
     }
 
+
 //    permission checker
 
     public void checkCameraPermissionAndOpenCamera(){
@@ -297,87 +389,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 //    handle all permission requests
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,@NonNull int[] grantResults){
-        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if(requestCode == STORAGE_PERMISSION_CODE){
+            if(grantResults.length > 0){
+                boolean write = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                boolean read = grantResults[1] == PackageManager.PERMISSION_GRANTED;
 
-        if(requestCode == CAMERA_PERMISSION_REQUEST_CODE){
-            if(grantResults.length >0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                takePictureLauncher.launch(imageUri);
-            }else{
-                Toast.makeText(this,"Permission Denied", Toast.LENGTH_SHORT).show();
+                if(read && write){
+                    Toast.makeText(MainActivity.this, "Storage Permissions Granted", Toast.LENGTH_SHORT).show();
+                }else{
+                    Toast.makeText(MainActivity.this, "Storage Permissions Denied", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }
 
-//handle marker location access
-    private void updateMarkerPosition(Marker marker) {
-        String markerID = (String) marker.getTag();
-        // Find the marker's position in the list
-
-        if (markerID!=null) {
-            // Get the new position of the marker
-            LatLng newPosition = marker.getPosition();
-            String newlat = String.valueOf(newPosition.latitude);
-            String newlong  = String.valueOf(newPosition.longitude);
-            // Update the position in the Firebase database
-            DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("images");
-            databaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
-                        String database_markerID = dataSnapshot.getKey();
-                        if(markerID.equals(database_markerID)){
-                            dataSnapshot.getRef().child("latitude").setValue(newlat);
-                            dataSnapshot.getRef().child("longitude").setValue(newlong);
-                            break;
-                        }
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    // Handle onCancelled event
-                }
-            });
-        }
-    }
-
-//    handle write and read data access
-
-      private void uploadDataToFirebase(@Nullable Location location)  throws IOException {
-        try {
-
-            double latitude = location != null ? location.getLatitude() : 0.0;
-            double longitude = location != null ? location.getLongitude() : 0.0;
-
-            // Convert latitude and longitude to String
-            String lat = String.valueOf(latitude);
-            String lng = String.valueOf(longitude);
-
-            // Convert image to byte array
-            Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-            byte[] imageData = baos.toByteArray();
-            String base64ImageData = Base64.encodeToString(imageData, Base64.DEFAULT);
-            long timestamp = System.currentTimeMillis();
-
-            // Upload data to Firebase
-            databaseReference = firebaseDatabase.getReference("images");
-            String key = databaseReference.push().getKey();
-            Map<String, Object> uploadData = new HashMap<>();
-            uploadData.put("latitude", lat);
-            uploadData.put("longitude", lng);
-            uploadData.put("imageData", base64ImageData);
-            uploadData.put("timestamp",timestamp);
-            databaseReference.child(key).setValue(uploadData);
-
-            Toast.makeText(MainActivity.this, "Image uploaded successfully", Toast.LENGTH_SHORT).show();
-        }catch (Exception e) {
-            e.printStackTrace();
-            // Handle the exception here
-            Toast.makeText(MainActivity.this, "Failed to upload image", Toast.LENGTH_SHORT).show();
-        }
-    }
 
 }
