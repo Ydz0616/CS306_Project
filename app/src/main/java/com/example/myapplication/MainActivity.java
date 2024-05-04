@@ -36,6 +36,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.FragmentActivity;
+
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
@@ -66,8 +70,10 @@ import android.util.Log;
 import android.widget.EditText;
 import android.widget.Toast;
 import com.google.firebase.database.annotations.Nullable;
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback{
+public class MainActivity extends AppCompatActivity implements
+        OnMapReadyCallback{
     private static final int STORAGE_PERMISSION_CODE = 23;
+    private LocationListener myLocationListener;
     GoogleMap mMap;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 1;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
@@ -138,7 +144,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         HandlerThread mapUpdateThread = new HandlerThread("MapUpdateThread");
         mapUpdateThread.start();
         looper = mapUpdateThread.getLooper();
-        mapHandler = new MapHandler(looper, mMap, this);
+        mapHandler = new MapHandler(looper, mMap, this, this);
 
         HandlerThread firebaseThread = new HandlerThread("FirebaseThread");
         firebaseThread.start();
@@ -153,8 +159,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if(!checkStoragePermissions()){
             requestForStoragePermissions();
-
         }
+        boolean locationPermission = ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+//                              check permission
+        if (!locationPermission) {
+            // Request location permission
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        }
+
+
 
 //        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
 //            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},STORAGE_PERMISSION_REQUEST_CODE);
@@ -237,6 +250,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Message msg = Message.obtain();
         msg.what = 1;
         musicHandler.sendMessage(msg);
+        Message msg2 = Message.obtain();
+        msg2.what = 2;
+        mapHandler.sendMessage(msg2);
 
     }
 
@@ -245,6 +261,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Message msg = Message.obtain();
         msg.what = 2;
         musicHandler.sendMessage(msg);
+        Message msg2 = Message.obtain();
+        msg2.what =3 ;
+        mapHandler.sendMessage(msg2);
 
     }
 
@@ -255,7 +274,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 //    System.out.println("is advanced marker enabled?" + capabilities.isAdvancedMarkersAvailable());
     mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(this));
     LatLng kunshanLatLng = new LatLng(31.416, 120.9014);
-    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(kunshanLatLng, 5));
+    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(kunshanLatLng, 10));
     mMap.getUiSettings().setZoomControlsEnabled(true); // Enable zoom control
     // Retrieve data from Firebase Realtime Database
 
@@ -380,6 +399,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (!cameraPermission) {
             // Request camera permission
             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+            Toast.makeText(MainActivity.this, "PLEASE RECLICK CAMERA", Toast.LENGTH_SHORT);
         }else{
             takePictureLauncher.launch(imageUri);
         }
