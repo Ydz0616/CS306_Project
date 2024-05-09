@@ -74,6 +74,7 @@ public class FirebaseHandler extends Handler {
                     String latitudeStr = dataSnapshot.child("latitude").getValue(String.class);
                     String longitudeStr = dataSnapshot.child("longitude").getValue(String.class);
                     String base64ImageData = dataSnapshot.child("imageData").getValue(String.class);
+                    long timestamp = dataSnapshot.child("timestamp").getValue(long.class);
 
                     if (latitudeStr != null && longitudeStr != null) {
                         try {
@@ -81,7 +82,7 @@ public class FirebaseHandler extends Handler {
                             double longitude = Double.parseDouble(longitudeStr);
                             LatLng position = new LatLng(latitude, longitude);
 
-                            MarkerData markerData = new MarkerData(markerID, position, base64ImageData);
+                            MarkerData markerData = new MarkerData(markerID, position, base64ImageData,timestamp);
                             markerDataList.add(markerData);
                         } catch (NumberFormatException e) {
                             e.printStackTrace();

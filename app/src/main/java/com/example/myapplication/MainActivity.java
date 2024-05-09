@@ -72,6 +72,8 @@ import android.widget.Toast;
 import com.google.firebase.database.annotations.Nullable;
 public class MainActivity extends AppCompatActivity implements
         OnMapReadyCallback{
+
+    private ActivityResultLauncher<String[]> permissionLauncher;
     private static final int STORAGE_PERMISSION_CODE = 23;
     private LocationListener myLocationListener;
     GoogleMap mMap;
@@ -101,8 +103,7 @@ public class MainActivity extends AppCompatActivity implements
     private boolean mapReady = false;
     private boolean isRecording = false;
 //   on create function
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override    protected void onCreate(Bundle savedInstanceState) {
 
 
 
@@ -112,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements
             @Override
             public void onMapsSdkInitialized(@NonNull MapsInitializer.Renderer renderer) {
 
-                 Log.d("TAG", "onMapsSdkInitialized: ");             }         });
+                Log.d("TAG", "onMapsSdkInitialized: ");             }         });
 
         EdgeToEdge.enable(this);
         //        setting up mainbinding for the image display and the image uri
@@ -160,20 +161,50 @@ public class MainActivity extends AppCompatActivity implements
         if(!checkStoragePermissions()){
             requestForStoragePermissions();
         }
-        boolean locationPermission = ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-//                              check permission
-        if (!locationPermission) {
-            // Request location permission
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-        }
-
-
-
-//        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
-//            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},STORAGE_PERMISSION_REQUEST_CODE);
+//        boolean locationPermission = ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+////                              check permission
+//        if (!locationPermission) {
+//            // Request location permission
+//            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
 //        }
+//        boolean cameraPermission = ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+//        if (!cameraPermission) {
+//            // Request camera permission
+//            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+//        }
+        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
+                new ActivityResultCallback<Map<String, Boolean>>() {
+                    @Override
+                    public void onActivityResult(Map<String, Boolean> isGranted) {
+                        if (isGranted.containsValue(false)) {
+                            // Handle permission denied
+                        } else {
+                            // Handle permission granted
+                            Log.d(TAG, "onActivityResult: Permissions granted");
+                        }
+                    }
+                });
+
+        checkAndRequestPermissions();
 
 
+
+    }
+    private void checkAndRequestPermissions() {
+        boolean storagePermission = checkStoragePermissions();
+        boolean locationPermission = ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean cameraPermission = ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+
+        if (!storagePermission || !locationPermission || !cameraPermission) {
+
+            permissionLauncher.launch(new String[]{
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.CAMERA
+            });
+        }
     }
     public boolean checkStoragePermissions(){
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
@@ -204,6 +235,7 @@ public class MainActivity extends AppCompatActivity implements
                                 }
                             }else{
                                 //Below android 11
+                                Toast.makeText(MainActivity.this,"Sorry, please update your android version",Toast.LENGTH_SHORT).show();
 
                             }
                         }

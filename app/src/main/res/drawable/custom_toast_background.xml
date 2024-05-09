@@ -1,0 +1,6 @@
+<!-- custom_toast_background.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/white" /> <!-- Set background color -->
+    <corners android:radius="20dp" /> <!-- Set corner radius -->
+</shape>

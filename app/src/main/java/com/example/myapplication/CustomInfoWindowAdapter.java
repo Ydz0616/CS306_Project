@@ -12,11 +12,16 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class CustomInfoWindowAdapter implements GoogleMap.InfoWindowAdapter {
 
     private final View mWindow;
     private final Context mContext;
     private Marker mMarker;
+
 
     public CustomInfoWindowAdapter(Context context) {
         mContext = context;
@@ -28,6 +33,7 @@ public class CustomInfoWindowAdapter implements GoogleMap.InfoWindowAdapter {
         TextView txtLat = view.findViewById(R.id.txtLat);
         TextView txtLng = view.findViewById(R.id.txtLng);
         EditText editTitle = view.findViewById(R.id.editTitle);
+
 
         LatLng position = marker.getPosition();
         double latitude = position.latitude;
@@ -51,7 +57,11 @@ public class CustomInfoWindowAdapter implements GoogleMap.InfoWindowAdapter {
             return false;
         });
     }
-
+    private String convertTimestampToDate(long timestamp) {
+        Date date = new Date(timestamp);
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault());
+        return sdf.format(date);
+    }
     @Override
     public View getInfoWindow(Marker marker) {
         renderWindowText(marker, mWindow);

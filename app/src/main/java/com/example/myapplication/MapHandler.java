@@ -15,6 +15,10 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Base64;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -39,60 +43,95 @@ import java.util.List;
 public class MapHandler extends Handler {
 
     private final MainActivity mainActivity;
-
+    private long startTime;
     private List<MarkerData> markerDataList;
 
     private Polyline gpsTrack;
 
-    private LocationCallback locationCallback = new LocationCallback() {
-        @Override
-        public void onLocationResult(LocationResult locationResult) {
-            if (locationResult != null) {
-                Location location = locationResult.getLastLocation();
-                LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-                //                    show lat lng
-                Log.d("MAPHANDLER", "LAT:  " + latLng.latitude + "LNG: " + latLng.longitude);
-                recordGPS(latLng);
-            } else {
-                Log.d("MAP", "NO LOCATION");
-            }
-        }
-    };
-
+//    private LocationCallback locationCallback = new LocationCallback() {
+//        @Override
+////        public void onLocationResult(LocationResult locationResult) {
+////            if (locationResult != null) {
+////                Location location = locationResult.getLastLocation();
+////                LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+////                //                    show lat lng
+////                Log.d("MAPHANDLER", "LAT:  " + latLng.latitude + "LNG: " + latLng.longitude);
+////                recordGPS(latLng);
+////            } else {
+////                Log.d("MAP", "NO LOCATION");
+////            }
+////        }
+////    };
+    private float totalDistance;
+    private final LocationCallback locationCallback;
 
     private FusedLocationProviderClient fusedLocationClient;
 
     private Context context;
     private List<LatLng> points;
-
+    private List<MarkerData> storedMarkerData;
     private PolylineOptions polylineOptions;
 
     public MapHandler(Looper looper, GoogleMap googleMapm, MainActivity mainActivity, Context context) {
         super(looper);
+        storedMarkerData = new ArrayList<>();
         this.mainActivity = mainActivity;
         this.context = context;
-        polylineOptions = new PolylineOptions();
-        polylineOptions.color(Color.BLUE);
-        polylineOptions.width(20);
-        points = new ArrayList<>();
-        markerDataList = new ArrayList<>();
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(mainActivity);
+        this.polylineOptions = new PolylineOptions().color(Color.BLUE).width(20);
+        this.points = new ArrayList<>();
+        this.markerDataList = new ArrayList<>();
+        this.fusedLocationClient = LocationServices.getFusedLocationProviderClient(mainActivity);
+        this.locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                if(locationResult!=null){
+                    Location location = locationResult.getLastLocation();
+                    LatLng latLng = new LatLng(location.getLatitude(),location.getLongitude());
+                    recordGPS(latLng);
+                }else{
+                    Log.d("MAP","NO LOCATION");
+                }
+            }
+        };
+
     }
 
     @Override
     public void handleMessage(@NonNull Message msg) {
         switch (msg.what) {
             case 1:
+                updateStoredMarkerData((List<MarkerData>) msg.obj);
                 renderMarkers((List<MarkerData>) msg.obj);
                 break;
             case 2:
-                startLocationUpdates();
+                startRendering();
+                break;
             case 3:
                 stopRendering();
+                break;
 //                renderMarkers((List<MarkerData>) msg.obj);
             default:
                 super.handleMessage(msg);
         }
+    }
+
+    private float calculateDistance(LatLng latLng1, LatLng latLng2) {
+        float[] results = new float[1];
+        Location.distanceBetween(latLng1.latitude, latLng1.longitude,
+                latLng2.latitude, latLng2.longitude, results);
+        return results[0];
+    }
+    private void updateStoredMarkerData(List<MarkerData> markerDataList) {
+        // Update the stored marker data every time renderMarkers() is called
+        storedMarkerData.clear(); // Clear existing data
+        storedMarkerData.addAll(markerDataList);
+    }
+    public float getTotalDistance() {
+        return totalDistance;
+    }
+    private void startRendering(){
+        startTime = System.currentTimeMillis();
+        startLocationUpdates();
     }
 
     private void renderMarkers(List<MarkerData> markerDataList) {
@@ -141,11 +180,7 @@ public class MapHandler extends Handler {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
             Log.d("MAP", "NO PERMISSION");
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
+
         } else {
             Log.d("MAP", "YES PERMISSION");
         }
@@ -162,14 +197,11 @@ public class MapHandler extends Handler {
             public void run() {
                 mainActivity.mMap.clear();
                 mainActivity.mMap.addPolyline(polylineOptions);
-                if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                        ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     // TODO: Consider calling
                     //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
+
                     return;
                 }
                 mainActivity.mMap.setMyLocationEnabled(true);
@@ -180,6 +212,13 @@ public class MapHandler extends Handler {
     }
 
     private void recordGPS(LatLng latLng) {
+
+        if (!points.isEmpty()) {
+            LatLng previousLatLng = points.get(points.size() - 1);
+            float distance = calculateDistance(previousLatLng, latLng);
+            totalDistance += distance;
+        }
+        points.add(latLng);
         polylineOptions.add(latLng);
         Log.d("MAP", "RENDERING POINT LAT : " + latLng.latitude + " LNG : " + latLng.longitude);
         renderRoute();
@@ -207,19 +246,41 @@ public class MapHandler extends Handler {
     }
 
     public void stopRendering() {
-//        fusedLocationClient.removeLocationUpdates(locationCallback);
-//        mainActivity.runOnUiThread(new Runnable() {
-//            @Override
-//            public void run() {
-//                mainActivity.mMap.clear();
-//                Message msg = Message.obtain();
-//                msg.what = 1;
-//                mainActivity.firebaseHandler.sendMessage(msg);
-//
-//
-//            }
-//        });
+        long stopTime = System.currentTimeMillis();
+        long timeIntervalMillis = stopTime - startTime;
+        long timeIntervalMinutes = timeIntervalMillis / (60 * 1000);
+        float speed = 0.0f;
+        if (!points.isEmpty() && timeIntervalMinutes > 0) {
+            float distance = getTotalDistance();
+            speed = distance / timeIntervalMinutes; // Speed in meters per minute
+        }
+        LayoutInflater inflater = mainActivity.getLayoutInflater();
+        View layout = inflater.inflate(R.layout.toast_layout,
+               null);
+        TextView textTime = layout.findViewById(R.id.text_time);
+        textTime.setText("Time: " + timeIntervalMinutes + " minutes"); // Replace formattedTime with your time value
 
+        TextView textSpeed = layout.findViewById(R.id.text_speed);
+        textSpeed.setText("Speed: " + speed + " m/min"); // Replace formattedSpeed with your speed value
+
+        TextView textDistance = layout.findViewById(R.id.text_distance);
+        textDistance.setText("Distance: " + totalDistance + " meters"); // Replace formattedDistance with your distance value
+        Toast toast = new Toast(context);
+        toast.setDuration(Toast.LENGTH_LONG);
+        toast.setView(layout);
+        toast.show();
+        // Stop location updates
+        fusedLocationClient.removeLocationUpdates(locationCallback);
+        totalDistance = getTotalDistance();
+        // Clear the map
+        mainActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mainActivity.mMap.clear();
+
+            }
+        });
+        renderMarkers(storedMarkerData);
     }
 
 }
